@@ -34,43 +34,204 @@
     <material name="white">
         <color rgba="1.0 1.0 1.0 1.0"/>
     </material>
+    <material name="white_trans">
+        <color rgba="1.0 1.0 1.0 0.7"/>
+    </material>
     
     <!-- Define robot constants -->
-    <xacro:property name="base_radius" value="0.0653"/>
-    <xacro:property name="base_length" value="0.003"/>
+    <xacro:property name="base_radius" value="0.0635"/>
+    <xacro:property name="base_width" value="0.003"/>
+    <xacro:property name="base_mass" value="0.030"/>
 
-    <xacro:property name="wheel_radius" value="0.10"/>
-    <xacro:property name="wheel_width" value="0.04"/>
-    <xacro:property name="wheel_ygap" value="0.025"/>
-    <xacro:property name="wheel_zoff" value="0.05"/>
-    <xacro:property name="wheel_xoff" value="0.12"/>
+    <xacro:property name="wheel_radius" value="0.021"/>
+    <xacro:property name="wheel_width" value="0.019"/>
+    <xacro:property name="wheel_mass" value="0.019"/>
 
-    <xacro:property name="caster_xoff" value="0.14"/>
+    <xacro:property name="caster_radius" value="0.0047625"/>
+    <xacro:property name="caster_mass" value="0.004"/>
 
-    <link name="chassis">
+    <xacro:property name="motor_width" value="0.0244"/>
+    <xacro:property name="motor_depth" value="0.012"/>
+    <xacro:property name="motor_height" value="0.010"/>
+    <xacro:property name="motor_mass" value="0.0095"/>
+
+    <xacro:property name="spacer_width" value="0.0015875"/>
+
+    <!-- <xacro:property name="motor_zoff" value="0.0080875"/> -->
+    <xacro:property name="motor_zoff" value="${base_width / 2 + spacer_width + motor_height / 2}"/>
+    <xacro:property name="motor_yoff" value="0.03"/>
+
+    <xacro:property name="motor_shaft_length" value="0.01"/>
+    <xacro:property name="wheel_inner_width" value="0.008"/>
+    <xacro:property name="caster_xoff" value="0.06"/>
+    <xacro:property name="caster_zoff" value="${motor_zoff - wheel_radius + caster_radius}"/>
+
+    <!-- Define intertial property macros  -->
+    <xacro:macro name="box_inertial" params="m x y z">
+        <inertial>
+            <mass value="${m}"/>
+            <inertia 
+                ixx="${(m/12) * (y*y+ z*z)}" ixy="0.0" ixz="0.0" 
+                iyy="${(m/12) * (z*z + x*x)}" iyz="0.0" 
+                izz="${(m/12) * (x*x + y*y)}"/>
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="cylinder_inertial" params="m r l">
+        <inertial>
+            <mass value="${m}"/>
+            <inertia
+                ixx="${(m/12) * (3*r*r+ l*l)}" ixy = "0" ixz = "0" 
+                iyy="${(m/12) * (3*r*r+ l*l)}" iyz = "0" 
+                izz="${(m/2) * (r*r)}"/>
+        </inertial>
+    </xacro:macro>
+
+    <xacro:macro name="sphere_inertial" params="m r">
+        <inertial>
+            <mass value="${m}"/>
+            <inertia ixx="${(2/5) * m * (r*r)}" ixy="0.0" ixz="0.0" 
+                iyy="${(2/5) * m * (r*r)}" iyz="0.0" 
+                izz="${(2/5) * m * (r*r)}"/>
+        </inertial>
+    </xacro:macro>
+  
+
+    <link name="base_link">
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <cylinder length="0.003" radius="0.0635"/>
+                <cylinder length="${base_width}" radius="${base_radius}"/>
             </geometry>
-            <material name="white"/>
+            <material name="white_trans"/>
         </visual>
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <cylinder length="0.003" radius="0.0635"/>
+                <cylinder length="${base_width}" radius="${base_radius}"/>
             </geometry>
         </collision>
-        <inertial>
-            <mass value="0.02"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.00002017625" ixy="0" ixz="0" iyy="0.00002017625" iyz="0" izz="0.0000403225"/>
-        </inertial>
     </link>
 
-    <joint name="chassis2caster" type="fixed">
-        <origin rpy="0 3.141592653589793 1.5707963267948966" xyz="0.054 0 -0.003"/>
-        <parent link="chassis"/>
+    <joint name="base_link-base_footprint" type="fixed">
+        <parent link="base_link"/>
+        <child link="base_footprint"/>
+        <origin xyz="0.0 0.0 ${-wheel_radius+motor_zoff}" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Base footprint is on the ground under the robot -->
+    <link name="base_footprint"/>
+
+    <joint name="base_link-base_inertial" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="base_inertial"/>
+    </joint>
+    
+    <!-- Inertial link stores the robot's inertial information -->
+    <link name="base_inertial">
+        <xacro:cylinder_inertial m="${base_mass}" r="${base_radius}" l="${base_width}"/>
+    </link>
+
+    <joint name="base_link-left_motor" type="fixed">
+        <origin rpy="0 0 0" xyz="0 ${motor_yoff} ${motor_zoff}"/>
+        <parent link="base_link"/>
+        <child link="left_motor"/>
+    </joint>
+
+    <link name="left_motor">
+        <visual>
+            <geometry>
+                <!-- <mesh filename="package://urdf/meshes/micro-metal-gearmotor-with-1086-bracket.dae"/> -->
+                <box size="${motor_depth} ${motor_width} ${motor_height}"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${motor_depth} ${motor_width} ${motor_height}"/>
+                <!-- <box size="0.038 0.012 0.010"/> -->
+            </geometry>
+        </collision>
+        <xacro:box_inertial m="${motor_mass}" x="${motor_depth}" y="${motor_width}" z="${motor_height}"/>
+    </link>
+    
+    <joint name="left_motor-left_wheel" type="continuous">
+        <origin rpy="${-pi/2} 0 0" xyz="0 ${motor_width / 2 + motor_shaft_length - wheel_inner_width / 2} 0"/>
+        <parent link="left_motor"/>
+        <child link="left_wheel"/>
+        <axis rpy="0 0 0" xyz="0 0 1"/>
+    </joint>
+
+    <link name="left_wheel">
+        <visual>
+            <geometry>
+                <!-- <mesh filename="package://urdf/meshes/pololu-wheel-42x19mm.dae"/> -->
+                <cylinder length="${wheel_width}" radius="${wheel_radius}"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <!-- <cylinder length="0.019" radius="0.021"/> -->
+                <cylinder length="${wheel_width}" radius="${wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:cylinder_inertial m="${wheel_mass}" r="${wheel_radius}" l="${wheel_width}"/>
+    </link>
+    
+    <joint name="base_link-right_motor" type="fixed">
+        <origin rpy="0 0 0" xyz="0 ${-motor_yoff} ${motor_zoff}"/>
+        <parent link="base_link"/>
+        <child link="right_motor"/>
+    </joint>
+
+    <link name="right_motor">
+        <visual>
+            <geometry>
+                <!-- <mesh filename="package://urdf/meshes/micro-metal-gearmotor-with-1086-bracket.dae"/> -->
+                <box size="${motor_depth} ${motor_width} ${motor_height}"/>
+            </geometry>
+            <material name="brown"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="${motor_depth} ${motor_width} ${motor_height}"/>
+                <!-- <box size="0.038 0.012 0.010"/> -->
+            </geometry>
+        </collision>
+        <xacro:box_inertial m="${motor_mass}" x="${motor_depth}" y="${motor_width}" z="${motor_height}"/>
+    </link>
+    
+    <joint name="right_motor-right_wheel" type="continuous">
+        <origin rpy="${-pi/2} 0 0" xyz="0 ${-(motor_width / 2 + motor_shaft_length - wheel_inner_width / 2)} 0"/>
+        <parent link="right_motor"/>
+        <child link="right_wheel"/>
+        <axis rpy="0 0 0" xyz="0 0 1"/>
+    </joint>
+
+    <link name="right_wheel">
+        <visual>
+            <geometry>
+                <!-- <mesh filename="package://urdf/meshes/pololu-wheel-42x19mm.dae"/> -->
+                <cylinder length="${wheel_width}" radius="${wheel_radius}"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <origin rpy=" 0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <!-- <cylinder length="0.019" radius="0.021"/> -->
+                <cylinder length="${wheel_width}" radius="${wheel_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:cylinder_inertial m="${wheel_mass}" r="${wheel_radius}" l="${wheel_width}"/>
+    </link>
+    
+    <joint name="base_link-caster" type="fixed">
+        <origin rpy="0 0 0" xyz="${caster_xoff} 0 ${caster_zoff}"/>
+        <parent link="base_link"/>
         <child link="caster"/>
     </joint>
 
@@ -78,160 +239,23 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="package://urdf/meshes/pololu-ball-caster-with-0-375in-ball.dae"/>
+                <sphere radius="${caster_radius}"/>
+                <!-- <mesh filename="package://urdf/meshes/pololu-ball-caster-with-0-375in-ball.dae"/> -->
             </geometry>
             <material name="grey"/>
         </visual>
         <collision>
             <origin rpy=" 0 0 0" xyz="0 0 -0.00505"/>
             <geometry>
-                <box size="0.0191 0.0121 0.0101"/>
+                <sphere radius="${caster_radius}"/>
             </geometry>
         </collision>
-        <inertial>
-            <mass value="0.004"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.000000145161" ixy="0" ixz="0" iyy="0.000000145161" iyz="0" izz="0.000000145161"/>
-        </inertial>
+        <xacro:sphere_inertial m="${caster_mass}" r="${caster_radius}"/>
         <contact>
             <lateral_friction value="0.0"/>
             <rolling_friction value="0.0"/>
             <stiffness value="30000"/>
             <damping value="1000"/>
-        </contact>
-    </link>
-    
-    <joint name="chassis2left_motor" type="fixed">
-        <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0 0.033 0.00875"/>
-        <parent link="chassis"/>
-        <child link="left_motor" />
-    </joint>
-
-    <link name="left_motor">
-        <visual>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <mesh filename="package://urdf/meshes/micro-metal-gearmotor-with-1086-bracket.dae"/>
-            </geometry>
-            <material name="orange"/>
-        </visual>
-        <collision>
-            <origin rpy=" 0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <box size="0.038 0.012 0.010"/>
-            </geometry>
-        </collision>
-        <inertial>
-            <mass value="0.0095"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.0000001931666666" ixy="0" ixz="0" iyy="0.0000012223333333" iyz="0" izz="0.0000012571666666"/>
-        </inertial>
-        <contact>
-            <lateral_friction value="0.0"/>
-            <rolling_friction value="0.0"/>
-            <stiffness value="30000"/>
-            <damping value="1000"/>
-        </contact>
-    </link>
-    
-    <joint name="left_motor2left_wheel" type="continuous">
-        <origin rpy="0 1.5707963267948966 0" xyz="0.016 0 0"/>
-        <parent link="left_motor"/>
-        <child link="left_wheel" />
-        <axis rpy="0 0 0" xyz="1 0 0"/>
-    </joint>
-
-    <link name="left_wheel">
-        <visual>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <mesh filename="package://urdf/meshes/pololu-wheel-42x19mm.dae"/>
-            </geometry>
-            <material name="black"/>
-        </visual>
-        <collision>
-            <origin rpy=" 0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <cylinder length="0.019" radius="0.021"/>
-            </geometry>
-        </collision>
-        <inertial>
-            <mass value="0.019"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.0000001931666666" ixy="0" ixz="0" iyy="0.0000012223333333" iyz="0" izz="0.0000012571666666"/>
-        </inertial>
-        <contact>
-            <lateral_friction value="0.0"/>
-            <rolling_friction value="0.0"/>
-            <stiffness value="3000"/>
-            <damping value="10000"/>
-        </contact>
-    </link>
-    
-    <joint name="chassis2right_motor" type="fixed">
-        <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 -0.033 0.00875"/>
-        <parent link="chassis"/>
-        <child link="right_motor" />
-    </joint>
-
-    <link name="right_motor">
-        <visual>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <mesh filename="package://urdf/meshes/micro-metal-gearmotor-with-1086-bracket.dae"/>
-            </geometry>
-            <material name="orange"/>
-        </visual>
-        <collision>
-            <origin rpy=" 0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <box size="0.038 0.012 0.010"/>
-            </geometry>
-        </collision>
-        <inertial>
-            <mass value="0.0095"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.0000001931666666" ixy="0" ixz="0" iyy="0.0000012223333333" iyz="0" izz="0.0000012571666666"/>
-        </inertial>
-        <contact>
-            <lateral_friction value="0.0"/>
-            <rolling_friction value="0.0"/>
-            <stiffness value="30000"/>
-            <damping value="1000"/>
-        </contact>
-    </link>
-    
-    <joint name="right_motor2right_wheel" type="continuous">
-        <origin rpy="0 -1.5707963267948966 0" xyz="0.016 0 0"/>
-        <parent link="right_motor"/>
-        <child link="right_wheel" />
-        <axis rpy="0 0 0" xyz="1 0 0"/>
-    </joint>
-
-    <link name="right_wheel">
-        <visual>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <mesh filename="package://urdf/meshes/pololu-wheel-42x19mm.dae"/>
-            </geometry>
-            <material name="black"/>
-        </visual>
-        <collision>
-            <origin rpy=" 0 0 0" xyz="0 0 0"/>
-            <geometry>
-                <cylinder length="0.019" radius="0.021"/>
-            </geometry>
-        </collision>
-        <inertial>
-            <mass value="0.019"/>
-            <origin rpy="0 0 0" xyz="0 0 0"/>
-            <inertia ixx="0.0000001931666666" ixy="0" ixz="0" iyy="0.0000012223333333" iyz="0" izz="0.0000012571666666"/>
-        </inertial>
-        <contact>
-            <lateral_friction value="0.0"/>
-            <rolling_friction value="0.0"/>
-            <stiffness value="3000"/>
-            <damping value="10000"/>
         </contact>
     </link>
 

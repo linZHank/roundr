@@ -229,13 +229,13 @@
         <xacro:cylinder_inertial m="${wheel_mass}" r="${wheel_radius}" l="${wheel_width}"/>
     </link>
     
-    <joint name="base_link-caster" type="fixed">
+    <joint name="base_link-front_caster" type="fixed">
         <origin rpy="0 0 0" xyz="${caster_xoff} 0 ${caster_zoff}"/>
         <parent link="base_link"/>
-        <child link="caster"/>
+        <child link="front_caster"/>
     </joint>
 
-    <link name="caster">
+    <link name="front_caster">
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
@@ -259,6 +259,77 @@
         </contact>
     </link>
 
+    <joint name="base_link-rear_caster" type="fixed">
+        <origin rpy="0 0 0" xyz="${-caster_xoff} 0 ${caster_zoff}"/>
+        <parent link="base_link"/>
+        <child link="rear_caster"/>
+    </joint>
+
+    <link name="rear_caster">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <sphere radius="${caster_radius}"/>
+                <!-- <mesh filename="package://urdf/meshes/pololu-ball-caster-with-0-375in-ball.dae"/> -->
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <origin rpy=" 0 0 0" xyz="0 0 -0.00505"/>
+            <geometry>
+                <sphere radius="${caster_radius}"/>
+            </geometry>
+        </collision>
+        <xacro:sphere_inertial m="${caster_mass}" r="${caster_radius}"/>
+        <contact>
+            <lateral_friction value="0.0"/>
+            <rolling_friction value="0.0"/>
+            <stiffness value="30000"/>
+            <damping value="1000"/>
+        </contact>
+    </link>
+
+    <joint name="base_link-lidar_motor" type="fixed">
+        <origin rpy="0 0 0" xyz="0.045 0 0.072"/>
+        <parent link="base_link"/>
+        <child link="lidar_motor"/>
+    </joint>
+
+    <link name="lidar_motor">
+        <visual>
+            <geometry>
+                <cylinder length="0.016" radius="0.016"/>
+            </geometry>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder length="0.016" radius="0.016"/>
+            </geometry>
+        </collision>
+        <xacro:cylinder_inertial m="0.16" r="0.016" l="0.016"/>
+    </link>
+
+    <joint name="base_link-lidar_house" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.092"/>
+        <parent link="base_link"/>
+        <child link="lidar_house"/>
+    </joint>
+
+    <link name="lidar_house">
+        <visual>
+            <geometry>
+                <cylinder length="0.024" radius="0.035"/>
+            </geometry>
+            <material name="dark"/>
+        </visual>
+        <collision>
+            <geometry>
+                <cylinder length="0.024" radius="0.035"/>
+            </geometry>
+        </collision>
+        <xacro:cylinder_inertial m="0.02" r="0.035" l="0.024"/>
+    </link>
 
     <!-- gazebo plugin for differential drive  -->
     <gazebo>
@@ -285,6 +356,43 @@
         </plugin>
     </gazebo>
 
-          
+
+    <gazebo reference="lidar_house">
+        <!-- Visuals / Collisions omitted for this example -->
+        <sensor type="gpu_ray" name="head_rplidar_sensor">
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>2000</samples>
+                        <resolution>1</resolution>
+                        <min_angle>-3.1415926</min_angle>
+                        <max_angle>3.1415926</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.15</min>
+                    <max>12.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <!-- Using gazebo's noise instead of plugin's -->
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0.0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+            <plugin name="gazebo_ros_head_lidar_controller" filename="libgazebo_ros_ray_sensor.so">
+                <!-- Change namespace and output topic so published topic is /rrbot/laser/scan -->
+                <ros>
+                    <namespace>/roundr/laser</namespace>
+                    <argument>~/out:=scan</argument>
+                </ros>
+                <output_type>sensor_msgs/LaserScan</output_type>
+                </plugin>
+            </sensor>
+        </gazebo>
+
 </robot>
 
